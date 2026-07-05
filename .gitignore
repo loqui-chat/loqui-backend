@@ -1,0 +1,10 @@
+/server
+/migrate
+/loqui
+*.exe
+.env
+*.swp
+.DS_STORE
+/result
+/result-*
+.direnv/
