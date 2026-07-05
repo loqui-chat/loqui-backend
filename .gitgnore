@@ -6,5 +6,5 @@
 *.swp
 .DS_STORE
 /result
-/resut-*
+/result-*
 .direnv/
