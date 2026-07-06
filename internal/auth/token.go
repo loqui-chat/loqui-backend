@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -91,7 +92,6 @@ func GenerateKey() (string, error) {
 }
 
 // LoadKey parses a PEM PKCS8 ed25519 key
-// An empty string generates and empheral key (meant dev only)
 func LoadKey(pemStr string) (ed25519.PrivateKey, error) {
 	if pemStr == "" {
 		_, priv, err := ed25519.GenerateKey(rand.Reader)
@@ -110,4 +110,24 @@ func LoadKey(pemStr string) (ed25519.PrivateKey, error) {
 		return nil, errors.New("auth: not an ed25519 key")
 	}
 	return priv, nil
+}
+
+// LoadKeyFile reads and parses a FEM key from a file path
+func LoadKeyFile(path string) (ed25519.PrivateKey, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("auth: read key file: %w", err)
+	}
+	return LoadKey(string(b))
+}
+
+// LoadKeyOrEphermal loads a key from path, or generates an ephemeral one when
+// path is emoty (dev only). Bool reports whether key is ephemeral
+func LoadKeyOrEphermal(path string) (ed25519.PrivateKey, bool, error) {
+	if path == "" {
+		_, priv, err := ed25519.GenerateKey(rand.Reader)
+		return priv, true, err
+	}
+	priv, err := LoadKeyFile(path)
+	return priv, false, err
 }

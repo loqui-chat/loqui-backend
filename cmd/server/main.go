@@ -34,13 +34,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	priv, err := auth.LoadKey(cfg.JWTPrivateKey)
+	priv, ephemeral, err := auth.LoadKeyOrEphermal(cfg.JWTPrivateKeyPath)
 	if err != nil {
 		log.Error("load jwt key failed", "err", err)
 		os.Exit(1)
 	}
-	if cfg.JWTPrivateKey == "" {
-		log.Warn("not JWT_PRIVATE_KEY set, using an ephemeral key. Token will not survice a restart")
+	if ephemeral {
+		log.Warn("not JWT_PRIVATE_KEY_FILE set, using an ephemeral key. Token will not survice a restart")
 	}
 	issuer := auth.NewIssuer(priv, cfg.AccessTTL, cfg.RefreshTTL)
 

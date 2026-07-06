@@ -10,26 +10,26 @@ import (
 )
 
 type Config struct {
-	DatabaseURL   string
-	HTTPAddr      string
-	NodeID        int64
-	LogLevel      string
-	LogFormat     string
-	Env           string
-	JWTPrivateKey string // PEM PKCS8 ed25519 (empty in dev == ephemeral)
-	AccessTTL     time.Duration
-	RefreshTTL    time.Duration
+	DatabaseURL       string
+	HTTPAddr          string
+	NodeID            int64
+	LogLevel          string
+	LogFormat         string
+	Env               string
+	JWTPrivateKeyPath string // PEM PKCS8 ed25519 (empty in dev == ephemeral)
+	AccessTTL         time.Duration
+	RefreshTTL        time.Duration
 }
 
 // Load reads config from env and validates it
 func Load() (*Config, error) {
 	c := &Config{
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		HTTPAddr:      getDefault("HTTP_ADDR", ":8080"),
-		LogLevel:      strings.ToLower(getDefault("LOG_LEVEL", "info")),
-		LogFormat:     strings.ToLower(getDefault("LOG_FORMAT", "text")),
-		Env:           strings.ToLower(getDefault("ENV", "dev")),
-		JWTPrivateKey: os.Getenv("JWT_PRIVATE_KEY"),
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		HTTPAddr:          getDefault("HTTP_ADDR", ":8080"),
+		LogLevel:          strings.ToLower(getDefault("LOG_LEVEL", "info")),
+		LogFormat:         strings.ToLower(getDefault("LOG_FORMAT", "text")),
+		Env:               strings.ToLower(getDefault("ENV", "dev")),
+		JWTPrivateKeyPath: os.Getenv("JWT_PRIVATE_KEY_FILE"),
 	}
 
 	if c.DatabaseURL == "" {
@@ -63,8 +63,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("config: bad LOG_FORMAT %q", c.LogFormat)
 	}
 
-	if c.Env != "dev" && c.JWTPrivateKey == "" {
-		return nil, fmt.Errorf("config: JWT_PRIVATE_KEY is required outside dev")
+	if c.Env != "dev" && c.JWTPrivateKeyPath == "" {
+		return nil, fmt.Errorf("config: JWT_PRIVATE_KEY_FILE is required outside dev")
 	}
 
 	return c, nil

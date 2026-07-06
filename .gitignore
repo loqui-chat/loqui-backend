@@ -1,4 +1,5 @@
 /server
+/secrets/
 /migrate
 /loqui
 *.exe
