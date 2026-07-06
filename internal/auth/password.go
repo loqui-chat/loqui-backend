@@ -1,3 +1,4 @@
+// Package auth provides password hashing, discriminatos, and JWT signing
 package auth
 
 import (
@@ -22,7 +23,7 @@ const (
 
 var ErrBadHash = errors.New("auth: malformed password hash")
 
-// HashPassword retunrs a PHC-format argon2id hash
+// HashPassword returns a PHC-format argon2id hash
 func HashPassword(password string) (string, error) {
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
@@ -35,7 +36,7 @@ func HashPassword(password string) (string, error) {
 		base64.RawStdEncoding.EncodeToString(key)), nil
 }
 
-// VerifyPassword reports wether password matches encoded hash
+// VerifyPassword reports whether password matches encoded hash
 func VerifyPassword(password, encoded string) (bool, error) {
 	p, salt, key, err := decodeHash(encoded)
 	if err != nil {
