@@ -3,7 +3,7 @@ include .env
 export
 endif
 
-.PHONY: db-up db-down migrate-up migrate-down migrate-status run test tidy
+.PHONY: db-up db-down migrate-up migrate-down migrate-status run test tidy genkey
 
 db-up:
 	docker compose up -d postgres
@@ -28,3 +28,6 @@ test:
 
 tidy:
 	go mod tidy
+
+genkey:
+	go run ./cmd/genkey
