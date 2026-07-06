@@ -10,11 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/loqui-chat/loqui-backend/internal/api"
+	"github.com/loqui-chat/loqui-backend/internal/auth"
 	"github.com/loqui-chat/loqui-backend/internal/config"
 	"github.com/loqui-chat/loqui-backend/internal/db"
 	"github.com/loqui-chat/loqui-backend/internal/logging"
 	"github.com/loqui-chat/loqui-backend/internal/snowflake"
+	"github.com/loqui-chat/loqui-backend/internal/user"
 )
 
 func main() {
@@ -32,6 +34,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	priv, err := auth.LoadKey(cfg.JWTPrivateKey)
+	if err != nil {
+		log.Error("load jwt key failed", "err", err)
+		os.Exit(1)
+	}
+	if cfg.JWTPrivateKey == "" {
+		log.Warn("not JWT_PRIVATE_KEY set, using an ephemeral key. Token will not survice a restart")
+	}
+	issuer := auth.NewIssuer(priv, cfg.AccessTTL, cfg.RefreshTTL)
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -42,14 +54,17 @@ func main() {
 	}
 	defer pool.Close()
 
+	users := user.NewStore(pool, gen)
+	server := api.NewServer(log, pool, users, issuer)
+
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           routes(pool, gen),
+		Handler:           server.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {
-		log.Info("server listening", "addr", cfg.HTTPAddr, "env", cfg.Env, "node", cfg.NodeID)
+		log.Info("sever listening", "addr", cfg.HTTPAddr, "env", cfg.Env, "node", cfg.NodeID)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("http server failed", "err", err)
 			stop()
@@ -65,21 +80,4 @@ func main() {
 		log.Error("graceful shutdown failed", "err", err)
 	}
 	log.Info("stopped")
-}
-
-func routes(pool *pgxpool.Pool, _ *snowflake.Generator) http.Handler {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if err := pool.Ping(ctx); err != nil {
-			http.Error(w, "db unavailable", http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-
-	return mux
 }
