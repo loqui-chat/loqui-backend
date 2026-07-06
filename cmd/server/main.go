@@ -12,6 +12,7 @@ import (
 
 	"github.com/loqui-chat/loqui-backend/internal/api"
 	"github.com/loqui-chat/loqui-backend/internal/auth"
+	"github.com/loqui-chat/loqui-backend/internal/channel"
 	"github.com/loqui-chat/loqui-backend/internal/config"
 	"github.com/loqui-chat/loqui-backend/internal/db"
 	"github.com/loqui-chat/loqui-backend/internal/logging"
@@ -55,7 +56,8 @@ func main() {
 	defer pool.Close()
 
 	users := user.NewStore(pool, gen)
-	server := api.NewServer(log, pool, users, issuer)
+	channels := channel.NewStore(pool, gen)
+	server := api.NewServer(log, pool, users, channels, issuer)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
