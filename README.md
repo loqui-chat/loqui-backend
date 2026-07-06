@@ -54,11 +54,13 @@ The Docker daemon is expected from your system config
 
 ```sh
 cp .env.example .env
-make db-up          # start postgres
-go mod tidy         # resolve dependencies
-make migrate-up     # create db tables
-make run            # start the server
-curl localhost:8080/healthz   # -> ok
+make db-up                                    # start postgres
+go mod tidy                                   # resolve dependencies
+mkdir -p secrets                              # create folder for jwt
+go run ./cmd/genkey > secrets/jwt_ed25519.pem # create secret in dir
+make migrate-up                               # create db tables
+make run                                      # start the server
+curl localhost:8080/healthz                   # -> ok
 ```
 
 `make migrate-status` shows applies vs pending. `make migrate-down` rolls back
@@ -80,4 +82,4 @@ failure leaves no partial states
 
 ## Next on the TODO
 
-Account registration, login by handle or email, JWT issue/verify
+Channels: create and list, giving messages a so called home
