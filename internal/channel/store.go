@@ -38,7 +38,7 @@ func (s *Store) Create(ctx context.Context, name string) (*Channel, error) {
 	err = s.pool.QueryRow(
 		ctx, `
 		insert into channels (id, name)
-		value ($1, $2)
+		values ($1, $2)
 		returning created_at`,
 		c.ID, c.Name,
 	).Scan(&c.CreatedAt)
