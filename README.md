@@ -82,4 +82,4 @@ failure leaves no partial states
 
 ## Next on the TODO
 
-Channels: create and list, giving messages a so called home
+Websocket stuff
