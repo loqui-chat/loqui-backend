@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/loqui-chat/loqui-backend/internal/auth"
 	"github.com/loqui-chat/loqui-backend/internal/channel"
+	"github.com/loqui-chat/loqui-backend/internal/message"
 	"github.com/loqui-chat/loqui-backend/internal/user"
 )
 
@@ -21,13 +22,14 @@ type Server struct {
 	pool      *pgxpool.Pool
 	users     *user.Store
 	channels  *channel.Store
+	messages  *message.Store
 	tokens    *auth.Issuer
 	dummyHash string // used to keep login timing steady for unknown users
 }
 
-func NewServer(log *slog.Logger, pool *pgxpool.Pool, users *user.Store, channels *channel.Store, tokens *auth.Issuer) *Server {
+func NewServer(log *slog.Logger, pool *pgxpool.Pool, users *user.Store, channels *channel.Store, messages *message.Store, tokens *auth.Issuer) *Server {
 	dummy, _ := auth.HashPassword("timing-equalizer")
-	return &Server{log: log, pool: pool, users: users, channels: channels, tokens: tokens, dummyHash: dummy}
+	return &Server{log: log, pool: pool, users: users, channels: channels, messages: messages, tokens: tokens, dummyHash: dummy}
 }
 
 // Routes returns http handler for api
@@ -41,6 +43,9 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("POST /channels", s.requireAuth(http.HandlerFunc(s.handleCreateChannel)))
 	mux.Handle("GET /channels", s.requireAuth(http.HandlerFunc(s.handleListChannels)))
 	mux.Handle("GET /channels/{id}", s.requireAuth(http.HandlerFunc(s.handleGetChannel)))
+
+	mux.Handle("POST /channels/{id}/messages", s.requireAuth(http.HandlerFunc(s.handleCreateMessage)))
+	mux.Handle("GET /channels/{id}/messages", s.requireAuth(http.HandlerFunc(s.handleListMessages)))
 	return mux
 }
 
