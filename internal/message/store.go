@@ -82,8 +82,8 @@ func (s *Store) List(ctx context.Context, channelID, before, after int64, limit 
 		from messages m
 		join users u on u.id = m.author_id
 		where m.channel_id = $1 and m.deleted_at is null
-			and ($2 = 0 or m.id < $2)
-			and ($3 = 0 or m.id < $3)
+			and ($2::bigint = 0 or m.id < $2::bigint)
+			and ($3::bigint = 0 or m.id < $3::bigint)
 		order by m.id `+order+`
 		limit $4`,
 		channelID, before, after, limit,
