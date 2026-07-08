@@ -67,7 +67,7 @@ func (g *Gateway) Handler() http.HandlerFunc {
 		if err != nil {
 			return // Accept already wrote response
 		}
-		defer conn.CloseNow()
+		defer func() { _ = conn.CloseNow() }()
 		conn.SetReadLimit(readLimit)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -87,7 +87,7 @@ func (g *Gateway) Handler() http.HandlerFunc {
 
 		cancel()
 		<-writeDone
-		conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}
 }
 
