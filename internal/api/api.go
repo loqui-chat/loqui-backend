@@ -19,19 +19,20 @@ import (
 )
 
 type Server struct {
-	log       *slog.Logger
-	pool      *pgxpool.Pool
-	users     *user.Store
-	channels  *channel.Store
-	messages  *message.Store
-	gw        *gateway.Gateway
-	tokens    *auth.Issuer
-	dummyHash string // used to keep login timing steady for unknown users
+	log         *slog.Logger
+	pool        *pgxpool.Pool
+	users       *user.Store
+	channels    *channel.Store
+	messages    *message.Store
+	gw          *gateway.Gateway
+	tokens      *auth.Issuer
+	corsOrigins []string
+	dummyHash   string // used to keep login timing steady for unknown users
 }
 
-func NewServer(log *slog.Logger, pool *pgxpool.Pool, users *user.Store, channels *channel.Store, messages *message.Store, gw *gateway.Gateway, tokens *auth.Issuer) *Server {
+func NewServer(log *slog.Logger, pool *pgxpool.Pool, users *user.Store, channels *channel.Store, messages *message.Store, gw *gateway.Gateway, tokens *auth.Issuer, corsOrigins []string) *Server {
 	dummy, _ := auth.HashPassword("timing-equalizer")
-	return &Server{log: log, pool: pool, users: users, channels: channels, messages: messages, gw: gw, tokens: tokens, dummyHash: dummy}
+	return &Server{log: log, pool: pool, users: users, channels: channels, messages: messages, gw: gw, tokens: tokens, corsOrigins: corsOrigins, dummyHash: dummy}
 }
 
 // Routes returns http handler for api
@@ -51,7 +52,7 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /channels/{id}/messages", s.requireAuth(http.HandlerFunc(s.handleListMessages)))
 
 	mux.HandleFunc("GET /gateway", s.gw.Handler())
-	return mux
+	return withCORS(s.corsOrigins, mux)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

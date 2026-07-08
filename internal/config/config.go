@@ -19,6 +19,7 @@ type Config struct {
 	JWTPrivateKeyPath string // PEM PKCS8 ed25519 (empty in dev == ephemeral)
 	AccessTTL         time.Duration
 	RefreshTTL        time.Duration
+	CORSOrigins       []string
 }
 
 // Load reads config from env and validates it
@@ -50,6 +51,16 @@ func Load() (*Config, error) {
 	}
 	if c.RefreshTTL, err = getDuration("REFRESH_TTL", 720*time.Hour); err != nil {
 		return nil, err
+	}
+
+	if v := os.Getenv("CORS_ORIGINS"); v != "" {
+		for _, o := range strings.Split(v, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				c.CORSOrigins = append(c.CORSOrigins, o)
+			}
+		}
+	} else if c.IsDev() {
+		c.CORSOrigins = []string{"*"} // dev default
 	}
 
 	switch c.LogLevel {

@@ -61,7 +61,7 @@ func main() {
 	channels := channel.NewStore(pool, gen)
 	messages := message.NewStore(pool, gen)
 	gw := gateway.New(issuer, channels, log)
-	server := api.NewServer(log, pool, users, channels, messages, gw, issuer)
+	server := api.NewServer(log, pool, users, channels, messages, gw, issuer, cfg.CORSOrigins)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
