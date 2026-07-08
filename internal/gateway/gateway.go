@@ -104,7 +104,7 @@ func (g *Gateway) readLoop(ctx context.Context, c *Client) {
 
 func (g *Gateway) handleCommand(ctx context.Context, c *Client, cmd clientCommand) {
 	switch cmd.Op {
-	case "subsribe":
+	case "subscribe":
 		id, err := strconv.ParseInt(cmd.ChannelID, 10, 64)
 		if err != nil {
 			c.enqueue(errorEvent("invalid channel_id"))
@@ -115,7 +115,7 @@ func (g *Gateway) handleCommand(ctx context.Context, c *Client, cmd clientComman
 			return
 		}
 		g.hub.subscribe(c, id)
-		c.enqueue(ackEvent("subsribed", id))
+		c.enqueue(ackEvent("subscribed", id))
 	case "unsubscribe":
 		id, err := strconv.ParseInt(cmd.ChannelID, 10, 64)
 		if err != nil {
