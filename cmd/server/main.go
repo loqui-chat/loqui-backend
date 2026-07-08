@@ -15,6 +15,7 @@ import (
 	"github.com/loqui-chat/loqui-backend/internal/channel"
 	"github.com/loqui-chat/loqui-backend/internal/config"
 	"github.com/loqui-chat/loqui-backend/internal/db"
+	"github.com/loqui-chat/loqui-backend/internal/gateway"
 	"github.com/loqui-chat/loqui-backend/internal/logging"
 	"github.com/loqui-chat/loqui-backend/internal/message"
 	"github.com/loqui-chat/loqui-backend/internal/snowflake"
@@ -59,7 +60,8 @@ func main() {
 	users := user.NewStore(pool, gen)
 	channels := channel.NewStore(pool, gen)
 	messages := message.NewStore(pool, gen)
-	server := api.NewServer(log, pool, users, channels, messages, issuer)
+	gw := gateway.New(issuer, channels, log)
+	server := api.NewServer(log, pool, users, channels, messages, gw, issuer)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

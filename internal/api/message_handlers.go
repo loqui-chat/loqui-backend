@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -33,6 +34,11 @@ type messageResponse struct {
 	Author    authorResponse `json:"author"`
 	EditedAt  *string        `json:"edited_at,omitempty"`
 	CreatedAt string         `json:"created_at"`
+}
+
+type messageCreateEvent struct {
+	Op   string          `json:"op"`
+	Data messageResponse `json:"data"`
 }
 
 func toMessageResponse(m *message.Message) messageResponse {
@@ -105,7 +111,14 @@ func (s *Server) handleCreateMessage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, http.StatusCreated, toMessageResponse(m))
+
+	resp := toMessageResponse(m)
+	if payload, err := json.Marshal(messageCreateEvent{Op: "message_create", Data: resp}); err == nil {
+		s.gw.Hub().Publish(m.ChannelID, payload)
+	} else {
+		s.log.Error("marshal message event", "err", err)
+	}
+	writeJSON(w, http.StatusCreated, resp)
 }
 
 func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
