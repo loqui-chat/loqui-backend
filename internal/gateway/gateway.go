@@ -22,14 +22,15 @@ const (
 
 // Gateway upgrades http requests to WS and owns hub
 type Gateway struct {
-	hub      *Hub
-	tokens   *auth.Issuer
-	channels *channel.Store
-	log      *slog.Logger
+	hub            *Hub
+	tokens         *auth.Issuer
+	channels       *channel.Store
+	log            *slog.Logger
+	originPatterns []string
 }
 
-func New(tokens *auth.Issuer, channels *channel.Store, log *slog.Logger) *Gateway {
-	return &Gateway{hub: NewHub(), tokens: tokens, channels: channels, log: log}
+func New(tokens *auth.Issuer, channels *channel.Store, log *slog.Logger, originPatterns []string) *Gateway {
+	return &Gateway{hub: NewHub(), tokens: tokens, channels: channels, log: log, originPatterns: originPatterns}
 }
 
 func (g *Gateway) Hub() *Hub { return g.hub }
@@ -59,10 +60,11 @@ func (g *Gateway) Handler() http.HandlerFunc {
 			return
 		}
 
-		// TODO: origin checks enabled by default
-		// configure OriginPatterns for browser client, set here later
+		// origin check uses configures patterns ("*" in dev)
+		// browser clients on another origin ar allowed via CORS_ORIGINS
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			Subprotocols: []string{Subprotocol},
+			Subprotocols:   []string{Subprotocol},
+			OriginPatterns: g.originPatterns,
 		})
 		if err != nil {
 			return // Accept already wrote response

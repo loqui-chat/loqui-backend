@@ -60,7 +60,7 @@ func main() {
 	users := user.NewStore(pool, gen)
 	channels := channel.NewStore(pool, gen)
 	messages := message.NewStore(pool, gen)
-	gw := gateway.New(issuer, channels, log)
+	gw := gateway.New(issuer, channels, log, cfg.CORSOrigins)
 	server := api.NewServer(log, pool, users, channels, messages, gw, issuer, cfg.CORSOrigins)
 
 	srv := &http.Server{
