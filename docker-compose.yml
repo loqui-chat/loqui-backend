@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: loqui
       POSTGRES_DB: loqui
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - loqui-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -15,6 +15,43 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    build: .
+    image: loqui-backend
+    command: ["/app/migrate", "up"]
+    environment:
+      DATABASE_URL: postgres://loqui:loqui@localhost:${POSTGRES_PORT:-5432}/loqui?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: no
+
+  api:
+    build: .
+    image: loqui-backend
+    container_name: loqui-api
+    environment:
+      DATABASE_URL: postgres://loqui:loqui@localhost:${POSTGRES_PORT:-5432}/loqui?sslmode=disable
+      HTTP_ADDR: ":${API_PORT:-8080}"
+      NODE_ID: "0"
+      LOG_LEVEL: info
+      LOG_FORMAT: text
+      ENV: dev
+      # empty = ephemeral dev key. override with:
+      #   JWT_PRIVATE_KEY="$(cat key.pem)" docker compose up
+      JWT_PRIVATE_KEY_FILE: ${JWT_PRIVATE_KEY_FILE:-}
+      ACCESS_TTL: 15m
+      REFRESH_TTL: 720h
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_succesfully
+    restart: unless-stopped
 
 volumes:
   loqui-pgdata:

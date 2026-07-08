@@ -1,0 +1,8 @@
+.git
+.direnv
+/result
+/result-*
+*.md
+.env
+Dockerfile
+docker-compose.yml
