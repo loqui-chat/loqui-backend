@@ -25,6 +25,10 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+type refreshRequest struct {
+	Refresh string `json:"refresh_token"`
+}
+
 type userResponse struct {
 	ID            string  `json:"id"` // string: snowflakes exceed js safe ints
 	Username      string  `json:"username"`
@@ -119,6 +123,34 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.issueAndRespond(w, u, http.StatusOK)
+}
+
+func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
+	var req refreshRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		return
+	}
+	claims, err := s.tokens.Parse(req.Refresh)
+	if err != nil || claims.Type != auth.RefreshToken {
+		writeError(w, http.StatusUnauthorized, "invalid refresh token")
+		return
+	}
+	id, err := strconv.ParseInt(claims.Subject, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid refresh token")
+		return
+	}
+	if _, err := s.users.GetByID(r.Context(), id); err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid refresh token")
+		return
+	}
+	access, err := s.tokens.Issue(id, auth.AccessToken)
+	if err != nil {
+		s.log.Error("issue access", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"access_token": access})
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {

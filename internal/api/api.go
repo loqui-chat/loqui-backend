@@ -40,6 +40,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("POST /register", s.handleRegister)
 	mux.HandleFunc("POST /login", s.handleLogin)
+	mux.HandleFunc("POST /refresh", s.handleRefresh)
 	mux.Handle("GET /me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 
 	mux.Handle("POST /channels", s.requireAuth(http.HandlerFunc(s.handleCreateChannel)))
