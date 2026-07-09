@@ -121,9 +121,9 @@ func LoadKeyFile(path string) (ed25519.PrivateKey, error) {
 	return LoadKey(string(b))
 }
 
-// LoadKeyOrEphermal loads a key from path, or generates an ephemeral one when
-// path is emoty (dev only). Bool reports whether key is ephemeral
-func LoadKeyOrEphermal(path string) (ed25519.PrivateKey, bool, error) {
+// LoadKeyOrEphemeral loads a key from path, or generates an ephemeral one when
+// path is empty (dev only). Bool reports whether key is ephemeral
+func LoadKeyOrEphemeral(path string) (ed25519.PrivateKey, bool, error) {
 	if path == "" {
 		_, priv, err := ed25519.GenerateKey(rand.Reader)
 		return priv, true, err

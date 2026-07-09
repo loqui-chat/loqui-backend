@@ -15,6 +15,7 @@ import (
 	"github.com/loqui-chat/loqui-backend/internal/channel"
 	"github.com/loqui-chat/loqui-backend/internal/gateway"
 	"github.com/loqui-chat/loqui-backend/internal/message"
+	"github.com/loqui-chat/loqui-backend/internal/session"
 	"github.com/loqui-chat/loqui-backend/internal/user"
 )
 
@@ -24,15 +25,16 @@ type Server struct {
 	users       *user.Store
 	channels    *channel.Store
 	messages    *message.Store
+	sessions    *session.Store
 	gw          *gateway.Gateway
 	tokens      *auth.Issuer
 	corsOrigins []string
 	dummyHash   string // used to keep login timing steady for unknown users
 }
 
-func NewServer(log *slog.Logger, pool *pgxpool.Pool, users *user.Store, channels *channel.Store, messages *message.Store, gw *gateway.Gateway, tokens *auth.Issuer, corsOrigins []string) *Server {
+func NewServer(log *slog.Logger, pool *pgxpool.Pool, users *user.Store, channels *channel.Store, messages *message.Store, sessions *session.Store, gw *gateway.Gateway, tokens *auth.Issuer, corsOrigins []string) *Server {
 	dummy, _ := auth.HashPassword("timing-equalizer")
-	return &Server{log: log, pool: pool, users: users, channels: channels, messages: messages, gw: gw, tokens: tokens, corsOrigins: corsOrigins, dummyHash: dummy}
+	return &Server{log: log, pool: pool, users: users, channels: channels, messages: messages, sessions: sessions, gw: gw, tokens: tokens, corsOrigins: corsOrigins, dummyHash: dummy}
 }
 
 // Routes returns http handler for api
@@ -42,6 +44,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /register", s.handleRegister)
 	mux.HandleFunc("POST /login", s.handleLogin)
 	mux.HandleFunc("POST /refresh", s.handleRefresh)
+	mux.HandleFunc("POST /logout", s.handleLogout)
 	mux.Handle("GET /me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 
 	mux.Handle("POST /channels", s.requireAuth(http.HandlerFunc(s.handleCreateChannel)))

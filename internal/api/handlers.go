@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loqui-chat/loqui-backend/internal/auth"
+	"github.com/loqui-chat/loqui-backend/internal/session"
 	"github.com/loqui-chat/loqui-backend/internal/user"
 )
 
@@ -101,7 +102,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.issueAndRespond(w, u, http.StatusCreated)
+	s.issueAndRespond(w, r, u, http.StatusCreated)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +123,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.issueAndRespond(w, u, http.StatusOK)
+	s.issueAndRespond(w, r, u, http.StatusOK)
 }
 
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
@@ -130,27 +131,37 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	if err := decodeJSON(w, r, &req); err != nil {
 		return
 	}
-	claims, err := s.tokens.Parse(req.Refresh)
-	if err != nil || claims.Type != auth.RefreshToken {
-		writeError(w, http.StatusUnauthorized, "invalid refresh token")
-		return
-	}
-	id, err := strconv.ParseInt(claims.Subject, 10, 64)
+	issued, userID, err := s.sessions.Rotate(r.Context(), req.Refresh)
 	if err != nil {
+		if errors.Is(err, session.ErrReuseDetected) {
+			s.log.Warn("refresh token reuse detected, session revoked")
+		}
 		writeError(w, http.StatusUnauthorized, "invalid refresh token")
 		return
 	}
-	if _, err := s.users.GetByID(r.Context(), id); err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid refresh token")
-		return
-	}
-	access, err := s.tokens.Issue(id, auth.AccessToken)
+	access, err := s.tokens.Issue(userID, auth.AccessToken)
 	if err != nil {
 		s.log.Error("issue access", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"access_token": access})
+	writeJSON(w, http.StatusOK, map[string]string{
+		"access_token":  access,
+		"refresh_token": issued.Token,
+	})
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	var req refreshRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		return
+	}
+	if err := s.sessions.Revoke(r.Context(), req.Refresh); err != nil {
+		s.log.Error("revoke session", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -176,20 +187,20 @@ func (s *Server) lookup(ctx context.Context, identity string) (*user.User, error
 	return s.users.GetByIdentity(ctx, name, disc)
 }
 
-func (s *Server) issueAndRespond(w http.ResponseWriter, u *user.User, status int) {
+func (s *Server) issueAndRespond(w http.ResponseWriter, r *http.Request, u *user.User, status int) {
 	access, err := s.tokens.Issue(u.ID, auth.AccessToken)
 	if err != nil {
 		s.log.Error("issue access", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	refresh, err := s.tokens.Issue(u.ID, auth.RefreshToken)
+	issued, err := s.sessions.Issue(r.Context(), u.ID, r.UserAgent())
 	if err != nil {
 		s.log.Error("issue refresh", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, status, authResponse{User: toUserResponse(u), Access: access, Refresh: refresh})
+	writeJSON(w, status, authResponse{User: toUserResponse(u), Access: access, Refresh: issued.Token})
 }
 
 func validEmail(email string) bool {

@@ -18,6 +18,7 @@ import (
 	"github.com/loqui-chat/loqui-backend/internal/gateway"
 	"github.com/loqui-chat/loqui-backend/internal/logging"
 	"github.com/loqui-chat/loqui-backend/internal/message"
+	"github.com/loqui-chat/loqui-backend/internal/session"
 	"github.com/loqui-chat/loqui-backend/internal/snowflake"
 	"github.com/loqui-chat/loqui-backend/internal/user"
 )
@@ -37,13 +38,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	priv, ephemeral, err := auth.LoadKeyOrEphermal(cfg.JWTPrivateKeyPath)
+	priv, ephemeral, err := auth.LoadKeyOrEphemeral(cfg.JWTPrivateKeyPath)
 	if err != nil {
 		log.Error("load jwt key failed", "err", err)
 		os.Exit(1)
 	}
 	if ephemeral {
-		log.Warn("not JWT_PRIVATE_KEY_FILE set, using an ephemeral key. Token will not survice a restart")
+		log.Warn("no JWT_PRIVATE_KEY_FILE set, using an ephemeral key. Token will not survive a restart")
 	}
 	issuer := auth.NewIssuer(priv, cfg.AccessTTL, cfg.RefreshTTL)
 
@@ -60,8 +61,11 @@ func main() {
 	users := user.NewStore(pool, gen)
 	channels := channel.NewStore(pool, gen)
 	messages := message.NewStore(pool, gen)
+	sessions := session.NewStore(pool, gen, cfg.RefreshTTL)
 	gw := gateway.New(issuer, channels, log, cfg.CORSOrigins)
-	server := api.NewServer(log, pool, users, channels, messages, gw, issuer, cfg.CORSOrigins)
+	server := api.NewServer(log, pool, users, channels, messages, sessions, gw, issuer, cfg.CORSOrigins)
+
+	go sessions.RunGC(ctx, time.Hour)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -70,7 +74,7 @@ func main() {
 	}
 
 	go func() {
-		log.Info("sever listening", "addr", cfg.HTTPAddr, "env", cfg.Env, "node", cfg.NodeID)
+		log.Info("server listening", "addr", cfg.HTTPAddr, "env", cfg.Env, "node", cfg.NodeID)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("http server failed", "err", err)
 			stop()
