@@ -1,7 +1,7 @@
-// Package session manages refresh tokens
+// Package sessions manages refresh tokens
 // tokens are hashed opaque secrets, rotated on use > reuse means leak
 // access tokens remain stateless JWTS
-package session
+package sessions
 
 import (
 	"context"
