@@ -11,7 +11,7 @@ services:
     volumes:
       - loqui-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U loqui -d loqui"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -21,7 +21,7 @@ services:
     image: loqui-backend
     command: ["/app/migrate", "up"]
     environment:
-      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,12 +32,12 @@ services:
     image: loqui-backend
     container_name: loqui-api
     environment:
-      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
       HTTP_ADDR: ":${API_PORT:-8080}"
       NODE_ID: ${NODE_ID}
       LOG_LEVEL: ${LOG_LEVEL}
       LOG_FORMAT: ${LOG_FORMAT}
-      ENV: dev
+      ENV: ${ENV}
       # empty = ephemeral dev key. override with:
       #   JWT_PRIVATE_KEY="$(cat key.pem)" docker compose up
       JWT_PRIVATE_KEY_FILE: ${JWT_PRIVATE_KEY_FILE:-}
