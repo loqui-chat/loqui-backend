@@ -1,4 +1,4 @@
-// Package sessions manages refresh tokens
+// Package session manages refresh tokens
 // tokens are hashed opaque secrets, rotated on use > reuse means leak
 // access tokens remain stateless JWTS
 package session
