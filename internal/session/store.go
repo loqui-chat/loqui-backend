@@ -191,7 +191,7 @@ func (s *Store) insert(ctx context.Context, q querier, id, userID, familyID int6
 	expires := time.Now().Add(s.refreshTTL)
 	if _, err := q.Exec(
 		ctx, `
-		insert into refresh_tokens (id, user_id, family_id, token_hash, user_agent, expires_at
+		insert into refresh_tokens (id, user_id, family_id, token_hash, user_agent, expires_at)
 		values ($1, $2, $3, $4, $5, $6)`,
 		id, userID, familyID, hash, userAgent, expires,
 	); err != nil {
