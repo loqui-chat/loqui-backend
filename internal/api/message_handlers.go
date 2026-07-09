@@ -61,10 +61,31 @@ func toMessageResponse(m *message.Message) messageResponse {
 	return resp
 }
 
-// validateContent trims and checks length (1-2000 runes)
-// control characters are rejected except newline and tab
+// isBlank reports wether r is whitespace or an invisible rune that renders
+// as nothing. used to trim ends and to reject all-blank messages
+func isBlank(r rune) bool {
+	if unicode.IsSpace(r) {
+		return true
+	}
+	switch r {
+	case '\u200B', '\u200C', '\u200D', // zero width space, non-joiner, joiner
+		'\u200E', '\u200F', // bidi marks
+		'\u202A', '\u202B', '\u202C', '\u202D', '\u202E', // bidi embeddings
+		'\u2060', '\u2061', '\u2062', '\u2063', '\u2064', // word joiner, invisible math
+		'\u2066', '\u2067', '\u2068', '\u2069', // bidi isolates
+		'\uFEFF',                               // bom, zero width nobreak space
+		'\u180E',                               // mongolian vowel separator
+		'\u2800',                               // braille pattern blank
+		'\u115F', '\u1160', '\u3164', '\uFFA0': // hangful fillers
+		return true
+	}
+	return false
+}
+
+// validateContent trims blank runes, then checks length (1-2000 runes) and
+// rejects control characters except newline and tab. all-blank content fails
 func validateContent(content string) (string, bool) {
-	content = strings.TrimSpace(content)
+	content = strings.TrimFunc(content, isBlank)
 	n := utf8.RuneCountInString(content)
 	if n < 1 || n > maxMessageLen {
 		return "", false
