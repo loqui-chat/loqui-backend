@@ -3,11 +3,11 @@ services:
     image: postgres:16-alpine
     container_name: loqui-postgres
     environment:
-      POSTGRES_USER: loqui
-      POSTGRES_PASSWORD: loqui
-      POSTGRES_DB: loqui
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - loqui-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +21,7 @@ services:
     image: loqui-backend
     command: ["/app/migrate", "up"]
     environment:
-      DATABASE_URL: postgres://loqui:loqui@localhost:${POSTGRES_PORT:-5432}/loqui?sslmode=disable
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,17 +32,17 @@ services:
     image: loqui-backend
     container_name: loqui-api
     environment:
-      DATABASE_URL: postgres://loqui:loqui@localhost:${POSTGRES_PORT:-5432}/loqui?sslmode=disable
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable
       HTTP_ADDR: ":${API_PORT:-8080}"
-      NODE_ID: "0"
-      LOG_LEVEL: info
-      LOG_FORMAT: text
+      NODE_ID: ${NODE_ID}
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOG_FORMAT: ${LOG_FORMAT}
       ENV: dev
       # empty = ephemeral dev key. override with:
       #   JWT_PRIVATE_KEY="$(cat key.pem)" docker compose up
       JWT_PRIVATE_KEY_FILE: ${JWT_PRIVATE_KEY_FILE:-}
-      ACCESS_TTL: 15m
-      REFRESH_TTL: 720h
+      ACCESS_TTL: ${ACCESS_TTL}
+      REFRESH_TTL: ${REFRESH_TTL}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
     ports:
       - "${API_PORT:-8080}:8080"
