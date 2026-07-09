@@ -38,8 +38,8 @@ type Store struct {
 	refreshTTL time.Duration
 }
 
-func NewStore(pool *pgxpool.Pool, gen *snowflake.Generator, refreshTTl time.Duration) *Store {
-	return &Store{pool: pool, gen: gen, refreshTTL: refreshTTl}
+func NewStore(pool *pgxpool.Pool, gen *snowflake.Generator, refreshTTL time.Duration) *Store {
+	return &Store{pool: pool, gen: gen, refreshTTL: refreshTTL}
 }
 
 // Issued is a freshly minted opaque refresh token and its expiry
