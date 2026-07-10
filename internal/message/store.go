@@ -3,10 +3,17 @@ package message
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/loqui-chat/loqui-backend/internal/snowflake"
+)
+
+var (
+	ErrNotFound  = errors.New("message: not found")
+	ErrForbidden = errors.New("message: not the author")
 )
 
 type Author struct {
@@ -114,4 +121,79 @@ func (s *Store) List(ctx context.Context, channelID, before, after int64, limit 
 		}
 	}
 	return out, nil
+}
+
+// Update replaces a live messages content when author owns it, sets
+// edited_at, and returns it with author embedded. returns ErrNotFound or
+// ErrForbidden otherwise
+func (s *Store) Update(ctx context.Context, channelID, messageID, authorID int64, content string) (*Message, error) {
+	m := &Message{}
+	err := s.pool.QueryRow(
+		ctx, `
+		with updated as (
+			update messages
+			set content = $4, edited_at = now()
+			where id = $1 and channel_id = $2 and author_id = $3
+			 and deleted_at is null
+			 returning id, channel_id, author_id, content, edited_at, created_at,
+		)
+		select up.id, up.channel_id, author_id, content, edited_at, up.created_at,
+			a.id, a.username, a.discriminator
+		from updated up
+		join users a on a.id = up.author_id`,
+		messageID, channelID, authorID, content,
+	).Scan(
+		&m.ID, &m.ChannelID, &m.Content, &m.EditedAt, &m.CreatedAt,
+		&m.Author.ID, &m.Author.Username, &m.Author.Discriminator,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, s.classifyMiss(ctx, channelID, messageID, authorID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Delete soft-detes a live message owned by authorID: sets deleted_at and
+// clears stored content. retunrs ErrNotFOund or ErrForbidden otherwise
+func (s *Store) Delete(ctx context.Context, channelID, messageID, authorID int64) error {
+	tag, err := s.pool.Exec(
+		ctx, `
+		update messages
+		set deleted_at = now(), connect = ''
+		where id = $1 and channel_id = $2 and author_id = $3
+		 and deleted_at is null`,
+		messageID, channelID, authorID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return s.classifyMiss(ctx, channelID, messageID, authorID)
+	}
+	return nil
+}
+
+// classifyMiss turns no-op update/delete into right error: ErrForbidden
+// when live message exists but belongs to someone else, ErrorNotFound when
+// is is missing or already deleted
+func (s *Store) classifyMiss(ctx context.Context, channelID, messageID, authorID int64) error {
+	var owner int64
+	err := s.pool.QueryRow(
+		ctx, `
+		select author_id from messages
+		where id = $1 and channel_id = $2 and deleted_at is null`,
+		messageID, channelID,
+	).Scan(&owner)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if owner != authorID {
+		return ErrForbidden
+	}
+	return ErrNotFound
 }
