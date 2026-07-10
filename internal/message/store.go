@@ -161,7 +161,7 @@ func (s *Store) Delete(ctx context.Context, channelID, messageID, authorID int64
 	tag, err := s.pool.Exec(
 		ctx, `
 		update messages
-		set deleted_at = now(), connect = ''
+		set deleted_at = now(), content = ''
 		where id = $1 and channel_id = $2 and author_id = $3
 		 and deleted_at is null`,
 		messageID, channelID, authorID,
