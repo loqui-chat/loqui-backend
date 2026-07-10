@@ -135,9 +135,9 @@ func (s *Store) Update(ctx context.Context, channelID, messageID, authorID int64
 			set content = $4, edited_at = now()
 			where id = $1 and channel_id = $2 and author_id = $3
 			 and deleted_at is null
-			 returning id, channel_id, author_id, content, edited_at, created_at,
+			 returning id, channel_id, author_id, content, edited_at, created_at
 		)
-		select up.id, up.channel_id, author_id, content, edited_at, up.created_at,
+		select up.id, up.channel_id, up.content, up.edited_at, up.created_at,
 			a.id, a.username, a.discriminator
 		from updated up
 		join users a on a.id = up.author_id`,
