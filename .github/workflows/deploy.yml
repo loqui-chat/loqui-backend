@@ -1,0 +1,54 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull, restart, verify
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            set -e
+            cd ~/loqui/loqui-backend/
+            git pull
+            #mark restart point -> scan fresh logs
+            since="$(date '+%Y-%m-%d %H:%M:%S')"
+            systemctl restart loqui
+            #let it boot -> confirm it stayed up
+            sleep 5
+            if ! systemctl is-active --quiet loqui; then
+              echo "loqui is not active after restart"
+              journalctl -u loqui.service --since "$since" --no-pager -n 50
+              exit 1
+            fi
+            #fail on any error line since restart
+            logs="$(journalctl -u loqui.service --since "$since" --no-pager)"
+            if echo "$logs" | grep -Eq 'level=ERROR|"level":"ERROR"|panic:'; then
+              echo "error-level logs after restart:"
+              echo "$logs" | grep -E 'level=ERROR|"level":"ERROR"|panic:'
+              exit 1
+            fi
+            echo "loqui is up"
+
+      - name: Notify Nerimity on failure
+        if: failure()
+        env:
+          WEBHOOK_URL: ${{ secrets.NERIMITY_WEBHOOK_URL }}
+          USER_ID: ${{ vars.NERIMITY_USER_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          content="[@:${USER_ID}] loqui backend deploy failed on \`main\` (${GITHUB_SHA::7}). logs: ${RUN_URL}"
+          jq -n --arg c "$content" '{content: $c}' \
+            | curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' -d @-
