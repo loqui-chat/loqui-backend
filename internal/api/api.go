@@ -74,7 +74,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // ==== json helpers ====
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Context-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
