@@ -53,6 +53,8 @@ func (s *Server) Routes() http.Handler {
 
 	mux.Handle("POST /channels/{id}/messages", s.requireAuth(http.HandlerFunc(s.handleCreateMessage)))
 	mux.Handle("GET /channels/{id}/messages", s.requireAuth(http.HandlerFunc(s.handleListMessages)))
+	mux.Handle("PATCH /channels/{id}/messages/{mid}", s.requireAuth(http.HandlerFunc(s.handleUpdateMessage)))
+	mux.Handle("DELETE /channels/{id}/messages/{mid}", s.requireAuth(http.HandlerFunc(s.handleDeleteMessage)))
 
 	mux.HandleFunc("GET /gateway", s.gw.Handler())
 	return withCORS(s.corsOrigins, mux)

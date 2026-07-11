@@ -20,6 +20,10 @@ type createMessageRequest struct {
 	Content string `json:"content"`
 }
 
+type updateMessageRequest struct {
+	Content string `json:"content"`
+}
+
 type authorResponse struct {
 	ID            string `json:"id"`
 	Username      string `json:"username"`
@@ -39,6 +43,21 @@ type messageResponse struct {
 type messageCreateEvent struct {
 	Op   string          `json:"op"`
 	Data messageResponse `json:"data"`
+}
+
+type messageUpdateEvent struct {
+	Op   string          `json:"op"`
+	Data messageResponse `json:"data"`
+}
+
+type messageDeleteEvent struct {
+	Op   string            `json:"op"`
+	Data messageDeleteData `json:"data"`
+}
+
+type messageDeleteData struct {
+	ID        string `json:"id"`
+	ChannelID string `json:"channel_id"`
 }
 
 func toMessageResponse(m *message.Message) messageResponse {
@@ -140,6 +159,93 @@ func (s *Server) handleCreateMessage(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("marshal message event", "err", err)
 	}
 	writeJSON(w, http.StatusCreated, resp)
+}
+
+func (s *Server) handleUpdateMessage(w http.ResponseWriter, r *http.Request) {
+	channelID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid channel id")
+		return
+	}
+	messageID, err := strconv.ParseInt(r.PathValue("mid"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid message id")
+		return
+	}
+
+	var req updateMessageRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		return
+	}
+	content, ok := validateContent(req.Content)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "content mus be between 1-2000 characters with no control characters except newline and tab")
+		return
+	}
+
+	authorID, _ := userIDFrom(r.Context())
+	m, err := s.messages.Update(r.Context(), channelID, messageID, authorID, content)
+	if err != nil {
+		switch {
+		case errors.Is(err, message.ErrNotFound):
+			writeError(w, http.StatusNotFound, "message not found")
+		case errors.Is(err, message.ErrForbidden):
+			writeError(w, http.StatusForbidden, "not your meassage")
+		default:
+			s.log.Error("update message", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+
+	resp := toMessageResponse(m)
+	if payload, err := json.Marshal(messageUpdateEvent{Op: "message_update", Data: resp}); err == nil {
+		s.gw.Hub().Publish(m.ChannelID, payload)
+	} else {
+		s.log.Error("marshal message event", "err", err)
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleDeleteMessage(w http.ResponseWriter, r *http.Request) {
+	channelID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid channel id")
+		return
+	}
+	messageID, err := strconv.ParseInt(r.PathValue("mid"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid message id")
+		return
+	}
+
+	authorID, _ := userIDFrom(r.Context())
+	if err := s.messages.Delete(r.Context(), channelID, messageID, authorID); err != nil {
+		switch {
+		case errors.Is(err, message.ErrNotFound):
+			writeError(w, http.StatusNotFound, "message not found")
+		case errors.Is(err, message.ErrForbidden):
+			writeError(w, http.StatusForbidden, "not your message")
+		default:
+			s.log.Error("delete message", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+
+	evt := messageDeleteEvent{
+		Op: "message_delete",
+		Data: messageDeleteData{
+			ID:        strconv.FormatInt(messageID, 10),
+			ChannelID: strconv.FormatInt(channelID, 10),
+		},
+	}
+	if payload, err := json.Marshal(evt); err == nil {
+		s.gw.Hub().Publish(channelID, payload)
+	} else {
+		s.log.Error("marshal message event", "err", err)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
