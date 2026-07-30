@@ -80,6 +80,6 @@ drop table ...;
 Each migration runs in its own transaction with its bookkeeping insert, so a
 failure leaves no partial states
 
-## Next on the TODO
+## License
 
-Websocket stuff
+MIT, see [LICENSE](LICENSE)
